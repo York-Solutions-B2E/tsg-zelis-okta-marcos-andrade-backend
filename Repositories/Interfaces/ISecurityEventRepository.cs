@@ -1,6 +1,6 @@
 using SecurityAuditDashboard.Api.Data.Entities;
 
-namespace SecurityAuditDashboard.Api.Repositories;
+namespace SecurityAuditDashboard.Api.Repositories.Interfaces;
 
 public interface ISecurityEventRepository
 {

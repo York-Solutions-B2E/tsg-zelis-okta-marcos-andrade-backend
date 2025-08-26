@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using SecurityAuditDashboard.Api.Data.Context;
 using SecurityAuditDashboard.Api.Data.Entities;
 
-namespace SecurityAuditDashboard.Api.Repositories;
+using SecurityAuditDashboard.Api.Repositories.Interfaces;
+namespace SecurityAuditDashboard.Api.Repositories.Implementations;
 
 public class RoleRepository : IRoleRepository
 {
@@ -35,5 +36,10 @@ public class RoleRepository : IRoleRepository
             .Include(r => r.RoleClaims)
             .ThenInclude(rc => rc.Claim)
             .ToListAsync();
+    }
+    
+    public async Task<List<Role>> GetAllAsync()
+    {
+        return await _context.Roles.ToListAsync();
     }
 }

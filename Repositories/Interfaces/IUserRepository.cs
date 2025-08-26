@@ -1,6 +1,6 @@
 using SecurityAuditDashboard.Api.Data.Entities;
 
-namespace SecurityAuditDashboard.Api.Repositories;
+namespace SecurityAuditDashboard.Api.Repositories.Interfaces;
 
 public interface IUserRepository
 {
@@ -10,4 +10,6 @@ public interface IUserRepository
     Task<User> CreateAsync(User user);
     Task UpdateAsync(User user);
     Task<List<User>> GetAllWithRolesAsync();
+    Task<List<User>> GetAllAsync();
+    Task<User?> GetByIdAsync(Guid id);
 }

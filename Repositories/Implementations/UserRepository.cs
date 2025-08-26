@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using SecurityAuditDashboard.Api.Data.Context;
 using SecurityAuditDashboard.Api.Data.Entities;
 
-namespace SecurityAuditDashboard.Api.Repositories;
+using SecurityAuditDashboard.Api.Repositories.Interfaces;
+namespace SecurityAuditDashboard.Api.Repositories.Implementations;
 
 public class UserRepository : IUserRepository
 {
@@ -58,5 +59,19 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Include(u => u.Role)
             .ToListAsync();
+    }
+    
+    public async Task<List<User>> GetAllAsync()
+    {
+        return await _context.Users
+            .Include(u => u.Role)
+            .ToListAsync();
+    }
+    
+    public async Task<User?> GetByIdAsync(Guid id)
+    {
+        return await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
     }
 }

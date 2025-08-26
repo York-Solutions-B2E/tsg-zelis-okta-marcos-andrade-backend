@@ -1,6 +1,6 @@
 using SecurityAuditDashboard.Api.Data.Entities;
 
-namespace SecurityAuditDashboard.Api.Services;
+namespace SecurityAuditDashboard.Api.Services.Interfaces;
 
 public interface ISecurityEventService
 {
@@ -9,4 +9,6 @@ public interface ISecurityEventService
     Task LogRoleAssignedAsync(Guid authorUserId, Guid affectedUserId, string fromRole, string toRole);
     Task<IEnumerable<SecurityEvent>> GetAuthEventsAsync();
     Task<IEnumerable<SecurityEvent>> GetRoleChangeEventsAsync();
+    Task<IEnumerable<object>> GetAuthenticationEventsAsync();
+    Task<IEnumerable<object>> GetRoleChangeEventDtosAsync();
 }
