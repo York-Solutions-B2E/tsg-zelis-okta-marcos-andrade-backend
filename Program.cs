@@ -83,6 +83,17 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Add GraphQL Server
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType<SecurityAuditDashboard.Api.GraphQL.Queries.Query>()
+    .AddMutationType<SecurityAuditDashboard.Api.GraphQL.Mutations.Mutation>()
+    .AddProjections()
+    .AddFiltering()
+    .AddSorting()
+    .AddAuthorization()
+    .AddErrorFilter<SecurityAuditDashboard.Api.GraphQL.GraphQLErrorFilter>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -100,6 +111,15 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map GraphQL endpoint
+app.MapGraphQL("/graphql");
+
+// Enable GraphQL IDE in development
+if (app.Environment.IsDevelopment())
+{
+    app.MapBananaCakePop("/graphql-ide");
+}
 
 // Apply migrations and seed data on startup (development only)
 if (app.Environment.IsDevelopment())
