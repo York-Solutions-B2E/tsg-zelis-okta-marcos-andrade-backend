@@ -39,12 +39,9 @@ public class RolesController : ControllerBase
     }
 
     [HttpGet("check-access")]
+    [Authorize(Policy = "CanViewRoleChanges")]
     public IActionResult CheckAccess()
     {
-        if (!User.HasClaim("permissions", "Audit.RoleChanges"))
-        {
-            return Forbid();
-        }
         return Ok();
     }
 
@@ -84,13 +81,9 @@ public class RolesController : ControllerBase
     }
 
     [HttpPost("assign")]
+    [Authorize(Policy = "CanViewRoleChanges")]
     public async Task<IActionResult> AssignRole([FromBody] RoleAssignmentDto dto)
     {
-        // Check permission
-        if (!User.HasClaim("permissions", "Audit.RoleChanges"))
-        {
-            return Forbid("You need the Audit.RoleChanges permission to assign roles.");
-        }
 
         if (!Guid.TryParse(dto.UserId, out var userId) || !Guid.TryParse(dto.RoleId, out var roleId))
         {
