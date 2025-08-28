@@ -55,4 +55,44 @@ public class UserService : IUserService
             CurrentRole = u.Role?.Name ?? "Unknown"
         });
     }
+
+    public async Task<User> CreateOrUpdateUserAsync(string email, string externalId, string name, string provider)
+    {
+        // Check if user exists by external ID
+        var user = await _userRepository.GetByExternalIdAsync(externalId);
+        
+        if (user == null)
+        {
+            // First time login - create new user with BasicUser role
+            var basicRole = await _roleRepository.GetByNameAsync("BasicUser");
+            if (basicRole == null)
+            {
+                throw new InvalidOperationException("BasicUser role not found in database");
+            }
+
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                ExternalId = externalId,
+                Name = name,
+                RoleId = basicRole.Id,
+                CreatedAt = DateTime.UtcNow,
+                LastLoginAt = DateTime.UtcNow
+            };
+
+            await _userRepository.CreateAsync(user);
+        }
+        else
+        {
+            // Existing user - update last login
+            user.LastLoginAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
+        }
+
+        // Load the role for the return value
+        user.Role = await _roleRepository.GetByIdAsync(user.RoleId);
+        
+        return user;
+    }
 }
