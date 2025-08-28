@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SecurityAuditDashboard.Api.Authentication;
+using SecurityAuditDashboard.Api.Authorization;
 using SecurityAuditDashboard.Api.Data.Context;
 using SecurityAuditDashboard.Api.Repositories.Interfaces;
 using SecurityAuditDashboard.Api.Repositories.Implementations;
@@ -44,14 +46,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     };
 });
 
-// Add Authorization
+// Add Authorization Handler
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+// Add Authorization with database-backed permission policies
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("CanViewAuthEvents", policy =>
-        policy.RequireClaim("permissions", "Audit.ViewAuthEvents"));
+    options.AddPolicy("CanViewAuthEvents", 
+        policy => policy.Requirements.Add(new PermissionRequirement("Audit.ViewAuthEvents")));
     
-    options.AddPolicy("CanViewRoleChanges", policy =>
-        policy.RequireClaim("permissions", "Audit.RoleChanges"));
+    options.AddPolicy("CanViewRoleChanges", 
+        policy => policy.Requirements.Add(new PermissionRequirement("Audit.RoleChanges")));
 });
 
 // Add repositories

@@ -18,26 +18,17 @@ public class SecurityEventsController : ControllerBase
     }
 
     [HttpGet("auth")]
+    [Authorize(Policy = "CanViewAuthEvents")]
     public async Task<IActionResult> GetAuthEvents()
     {
-        // Check if user has Audit.ViewAuthEvents claim
-        if (!User.HasClaim("permissions", "Audit.ViewAuthEvents"))
-        {
-            return Forbid();
-        }
-
         var events = await _securityEventService.GetAuthenticationEventsAsync();
         return Ok(events);
     }
 
     [HttpGet("roles")]
+    [Authorize(Policy = "CanViewRoleChanges")]
     public async Task<IActionResult> GetRoleEvents()
     {
-        // Check if user has Audit.RoleChanges claim
-        if (!User.HasClaim("permissions", "Audit.RoleChanges"))
-        {
-            return Forbid();
-        }
 
         var events = await _securityEventService.GetRoleChangeEventDtosAsync();
         return Ok(events);
