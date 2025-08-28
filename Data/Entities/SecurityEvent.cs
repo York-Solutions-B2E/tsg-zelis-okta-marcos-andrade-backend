@@ -20,4 +20,11 @@ public class SecurityEvent
     
     [MaxLength(400)]
     public string? Details { get; set; }
+    
+    // Role change tracking (only populated for ROLE_ASSIGNED events)
+    public Guid? PreviousRoleId { get; set; }
+    public Role? PreviousRole { get; set; }
+    
+    public Guid? NewRoleId { get; set; }
+    public Role? NewRole { get; set; }
 }

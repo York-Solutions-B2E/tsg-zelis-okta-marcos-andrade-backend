@@ -32,5 +32,15 @@ public class RoleType : ObjectType<Role>
         descriptor.Field(r => r.RoleClaims)
             .Type<ListType<RoleClaimType>>()
             .Description("The role-claim relationships for this role");
+
+        // Add computed field for direct claims access (what tests expect)
+        descriptor.Field("claims")
+            .Type<ListType<ClaimType>>()
+            .Description("The claims associated with this role")
+            .Resolve(context =>
+            {
+                var role = context.Parent<Role>();
+                return role.RoleClaims?.Select(rc => rc.Claim) ?? new List<Claim>();
+            });
     }
 }
