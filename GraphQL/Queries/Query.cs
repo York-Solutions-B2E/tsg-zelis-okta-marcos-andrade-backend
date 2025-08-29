@@ -14,6 +14,7 @@ public class Query
     /// <summary>
     /// Get all users with their roles (requires CanViewAuthEvents permission)
     /// </summary>
+    // TODO: Re-enable authorization after GraphQL schema testing is complete
     // [Authorize(Policy = "CanViewAuthEvents")] // Temporarily disabled for testing
     [UseProjection]
     [UseFiltering]

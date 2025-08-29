@@ -7,10 +7,11 @@ namespace SecurityAuditDashboard.Api.GraphQL.Mutations;
 
 /// <summary>
 /// GraphQL Mutation root type
-/// This is a placeholder - will be implemented in Task 3
 /// </summary>
 public class Mutation
 {
+    // TODO: Add [Authorize] attribute once testing phase is complete
+    // TODO: Consider adding audit logging for the user performing the action (not just the affected user)
     public async Task<AssignUserRoleResultDto> AssignUserRole(
         AssignUserRoleInputDto input,
         [Service] IUserRepository userRepository,
@@ -69,7 +70,13 @@ public class Mutation
                     Id = user.Id,
                     Email = user.Email,
                     Name = user.Name,
-                    CurrentRole = role.Name
+                    RoleId = user.RoleId,
+                    Role = new RoleDto
+                    {
+                        Id = role.Id,
+                        Name = role.Name,
+                        Description = role.Description
+                    }
                 },
                 SecurityEvent = new SecurityEventDto
                 {
