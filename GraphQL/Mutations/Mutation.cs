@@ -11,8 +11,6 @@ namespace SecurityAuditDashboard.Api.GraphQL.Mutations;
 /// </summary>
 public class Mutation
 {
-    public string GetPlaceholder() => "Mutations coming soon!";
-    
     public async Task<AssignUserRoleResultDto> AssignUserRole(
         AssignUserRoleInputDto input,
         [Service] IUserRepository userRepository,
@@ -43,7 +41,7 @@ public class Mutation
 
             // Store previous role before updating
             var previousRoleId = user.RoleId;
-            
+
             // Update user role
             user.RoleId = input.RoleId;
             await userRepository.UpdateAsync(user);

@@ -29,7 +29,7 @@ public class Query
     // [Authorize(Policy = "CanViewAuthEvents")] // Temporarily disabled for testing
     [UseProjection]
     public async Task<User?> GetUser(
-        [ID] Guid id, 
+        [ID] Guid id,
         [Service] IUserRepository userRepository)
     {
         return await userRepository.GetByIdWithRoleAndClaimsAsync(id);
@@ -75,4 +75,17 @@ public class Query
     /// Hello world query for testing
     /// </summary>
     public string GetHello() => "Hello GraphQL!";
+
+
+    /// <summary>
+    /// Get all available roles
+    /// </summary>
+    // [Authorize] // Will re-enable later for auth
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public async Task<List<Role>> GetRoles([Service] IRoleRepository roleRepository)
+    {
+        return await roleRepository.GetAllAsync();
+    }
 }
