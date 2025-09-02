@@ -56,4 +56,18 @@ public class UsersController : ControllerBase
 
         return Ok(response);
     }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequestDto request)
+    {
+        if (request == null || request.UserId == Guid.Empty)
+        {
+            return BadRequest("Invalid logout request");
+        }
+
+        // Log the logout event
+        await _securityEventService.LogLogoutAsync(request.UserId);
+
+        return Ok();
+    }
 }

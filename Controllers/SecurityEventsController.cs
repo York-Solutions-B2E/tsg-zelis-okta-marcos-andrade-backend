@@ -33,4 +33,5 @@ public class SecurityEventsController : ControllerBase
         var events = await _securityEventService.GetRoleChangeEventDtosAsync();
         return Ok(events);
     }
+
 }
