@@ -38,12 +38,7 @@ public class RolesController : ControllerBase
         }));
     }
 
-    [HttpGet("check-access")]
-    [Authorize(Policy = "CanViewRoleChanges")]
-    public IActionResult CheckAccess()
-    {
-        return Ok();
-    }
+    // Note: Permission checking now handled via GraphQL userPermissions query
 
     [HttpPost("make-me-admin")]
     public async Task<IActionResult> MakeMeAdmin()
