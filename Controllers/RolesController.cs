@@ -26,19 +26,8 @@ public class RolesController : ControllerBase
         _environment = environment;
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetRoles()
-    {
-        var roles = await _roleRepository.GetAllAsync();
-        return Ok(roles.Select(r => new
-        {
-            r.Id,
-            r.Name,
-            r.Description
-        }));
-    }
-
-    // Note: Permission checking now handled via GraphQL userPermissions query
+    // Note: GetRoles and role assignment now handled via GraphQL queries/mutations
+    // Only keeping dev endpoint for initial admin setup
 
     [HttpPost("make-me-admin")]
     public async Task<IActionResult> MakeMeAdmin()
@@ -75,36 +64,5 @@ public class RolesController : ControllerBase
         return BadRequest("Failed to upgrade role");
     }
 
-    [HttpPost("assign")]
-    [Authorize(Policy = "CanViewRoleChanges")]
-    public async Task<IActionResult> AssignRole([FromBody] RoleAssignmentDto dto)
-    {
-
-        if (!Guid.TryParse(dto.UserId, out var userId) || !Guid.TryParse(dto.RoleId, out var roleId))
-        {
-            return BadRequest("Invalid user or role ID.");
-        }
-
-        // Get current user (actor)
-        var actorId = User.Claims.FirstOrDefault(c => c.Type == "userId")?.Value;
-        if (!Guid.TryParse(actorId, out var actorGuid))
-        {
-            // For now, use the target user as actor if we can't determine the actual actor
-            actorGuid = userId;
-        }
-
-        var result = await _userService.AssignRoleAsync(userId, roleId, actorGuid);
-        if (result)
-        {
-            return Ok(new { message = "Role assigned successfully." });
-        }
-
-        return BadRequest("Failed to assign role.");
-    }
-
-    public class RoleAssignmentDto
-    {
-        public string UserId { get; set; } = string.Empty;
-        public string RoleId { get; set; } = string.Empty;
-    }
+    // Note: Role assignment now handled via GraphQL assignUserRole mutation
 }

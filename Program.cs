@@ -1,6 +1,10 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using SecurityAuditDashboard.Api.Authentication;
 using SecurityAuditDashboard.Api.Authorization;
 using SecurityAuditDashboard.Api.Data.Context;
@@ -25,26 +29,75 @@ var authConfig = new AuthenticationConfig();
 builder.Configuration.GetSection("Authentication").Bind(authConfig);
 builder.Services.AddSingleton(authConfig);
 
-// Add Authentication Services - JWT Only
+// Add JWT Bearer Authentication following Microsoft BFF pattern
+// Configure to accept tokens from Okta (primary) and Microsoft (secondary)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-.AddJwtBearer(options =>
-{
-    // Validate JWT tokens from Okta
-    options.Authority = authConfig.Okta.Authority;
-    options.Audience = authConfig.Okta.ClientId;
-    options.RequireHttpsMetadata = false; // Only for development
-    
-    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = authConfig.Okta.Authority,
-        ValidAudience = authConfig.Okta.ClientId,
-        NameClaimType = "name"
-    };
-});
+        // Configure JWT validation for Okta tokens
+        // The Authority tells the middleware where to download the OIDC metadata (including signing keys)
+        options.Authority = "https://integrator-1262812.okta.com/oauth2/default";
+        
+        // The audience should match what's configured in Okta
+        options.Audience = "api://default"; // This is typically the default for Okta
+        
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,  
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
+        
+        options.RequireHttpsMetadata = true; // Okta uses HTTPS
+        
+        // Add logging for debugging
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError("JWT Authentication failed: {Error}", context.Exception?.Message);
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("JWT Token validated successfully");
+                
+                // Log all claims to understand what's in the token
+                if (context.Principal != null)
+                {
+                    foreach (var claim in context.Principal.Claims)
+                    {
+                        logger.LogDebug("Claim: {Type} = {Value}", claim.Type, claim.Value);
+                    }
+                    
+                    var email = context.Principal.FindFirst("email")?.Value ?? 
+                                context.Principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+                    logger.LogInformation("User email from token: {Email}", email ?? "NOT FOUND");
+                }
+                
+                return Task.CompletedTask;
+            },
+            OnMessageReceived = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    logger.LogDebug("JWT Bearer token received (first 20 chars): {Token}...", token?.Substring(0, Math.Min(20, token?.Length ?? 0)));
+                }
+                else
+                {
+                    logger.LogWarning("No Bearer token found in Authorization header");
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
 
 // Add Authorization Handler
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();

@@ -11,6 +11,7 @@ public class OktaSettings
     public string Domain { get; set; } = string.Empty;
     public string ClientId { get; set; } = string.Empty;
     public string ClientSecret { get; set; } = string.Empty;
+    public string Audience { get; set; } = "api://default"; // Default audience for Okta
     public string Authority => $"https://{Domain}/oauth2/default";
 }
 

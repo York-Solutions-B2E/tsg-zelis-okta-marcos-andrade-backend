@@ -1,7 +1,9 @@
 using SecurityAuditDashboard.Api.Repositories.Interfaces;
+using SecurityAuditDashboard.Api.Services.Interfaces;
 using SecurityAuditDashboard.Shared.DTOs;
 using SecurityAuditDashboard.Shared.Constants;
 using HotChocolate;
+using HotChocolate.Authorization;
 
 namespace SecurityAuditDashboard.Api.GraphQL.Mutations;
 
@@ -10,8 +12,10 @@ namespace SecurityAuditDashboard.Api.GraphQL.Mutations;
 /// </summary>
 public class Mutation
 {
-    // TODO: Add [Authorize] attribute once testing phase is complete
-    // TODO: Consider adding audit logging for the user performing the action (not just the affected user)
+    /// <summary>
+    /// Assign a role to a user (requires CanViewRoleChanges permission)
+    /// </summary>
+    [Authorize(Policy = "CanViewRoleChanges")]
     public async Task<AssignUserRoleResultDto> AssignUserRole(
         AssignUserRoleInputDto input,
         [Service] IUserRepository userRepository,
@@ -96,6 +100,33 @@ public class Mutation
             {
                 Success = false,
                 Message = $"Error assigning role: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Log user logout event (requires authentication)
+    /// </summary>
+    [Authorize]
+    public async Task<LogoutResultDto> LogLogout(
+        Guid userId,
+        [Service] ISecurityEventService securityEventService)
+    {
+        try
+        {
+            await securityEventService.LogLogoutAsync(userId);
+            return new LogoutResultDto
+            {
+                Success = true,
+                Message = "Logout event logged successfully"
+            };
+        }
+        catch (Exception ex)
+        {
+            return new LogoutResultDto
+            {
+                Success = false,
+                Message = $"Error logging logout: {ex.Message}"
             };
         }
     }

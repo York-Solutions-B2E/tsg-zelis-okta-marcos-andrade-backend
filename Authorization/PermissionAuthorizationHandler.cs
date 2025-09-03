@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using SecurityAuditDashboard.Api.Repositories.Interfaces;
 
 namespace SecurityAuditDashboard.Api.Authorization;
@@ -17,11 +18,16 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        var email = context.User.FindFirst("email")?.Value
-                    ?? context.User.FindFirst(ClaimTypes.Email)?.Value;
+        // Look for external ID first (most reliable)
+        var externalId = context.User.FindFirst("uid")?.Value  // Okta uses 'uid'
+                        ?? context.User.FindFirst("sub")?.Value  // Standard OIDC uses 'sub'
+                        ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value; // Some providers use this
 
-        if (string.IsNullOrEmpty(email))
+        if (string.IsNullOrEmpty(externalId))
         {
+            var logger = _serviceProvider.GetService<ILogger<PermissionAuthorizationHandler>>();
+            logger?.LogWarning("No external ID claim found. Available claims: {Claims}", 
+                string.Join(", ", context.User.Claims.Select(c => c.Type)));
             context.Fail();
             return;
         }
@@ -29,10 +35,13 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         using var scope = _serviceProvider.CreateScope();
         var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
 
-        var user = await userRepo.GetByEmailAsync(email);
+        var user = await userRepo.GetByExternalIdAsync(externalId);
 
         if (user?.Role?.RoleClaims == null)
         {
+            var logger = _serviceProvider.GetService<ILogger<PermissionAuthorizationHandler>>();
+            logger?.LogWarning("User not found or has no role/claims. ExternalId: {ExternalId}, UserFound: {UserFound}, Role: {Role}", 
+                externalId, user != null, user?.Role?.Name);
             context.Fail();
             return;
         }

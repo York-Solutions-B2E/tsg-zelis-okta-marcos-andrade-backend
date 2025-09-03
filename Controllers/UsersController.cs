@@ -19,13 +19,6 @@ public class UsersController : ControllerBase
         _securityEventService = securityEventService;
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetUsers()
-    {
-        var users = await _userService.GetAllUsersAsync();
-        return Ok(users);
-    }
-
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
