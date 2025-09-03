@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +16,9 @@ using SecurityAuditDashboard.Api.Services.Implementations;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Enable PII logging for debugging (REMOVE IN PRODUCTION!)
+Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
+
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -29,17 +33,47 @@ var authConfig = new AuthenticationConfig();
 builder.Configuration.GetSection("Authentication").Bind(authConfig);
 builder.Services.AddSingleton(authConfig);
 
-// Add JWT Bearer Authentication following Microsoft BFF pattern
-// Configure to accept tokens from Okta (primary) and Microsoft (secondary)
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// Add JWT Bearer Authentication with multiple schemes for Okta and Microsoft
+// Use a policy scheme to dynamically select between Okta and Microsoft
+builder.Services.AddAuthentication(options =>
     {
-        // Configure JWT validation for Okta tokens
-        // The Authority tells the middleware where to download the OIDC metadata (including signing keys)
+        options.DefaultAuthenticateScheme = "JWT";
+        options.DefaultChallengeScheme = "JWT";
+    })
+    .AddPolicyScheme("JWT", "JWT", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            // Get the authorization header
+            string authorization = context.Request.Headers["Authorization"];
+            if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var token = authorization.Substring("Bearer ".Length).Trim();
+                
+                // Decode the JWT to check the issuer
+                try
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    var issuer = jsonToken?.Issuer;
+                    
+                    // Route to the appropriate handler based on issuer
+                    if (issuer?.Contains("okta.com") == true)
+                        return "Okta";
+                    if (issuer?.Contains("sts.windows.net") == true || issuer?.Contains("microsoftonline.com") == true)
+                        return "Microsoft";
+                }
+                catch { }
+            }
+            
+            // Default to Okta if we can't determine
+            return "Okta";
+        };
+    })
+    .AddJwtBearer("Okta", options =>
+    {
         options.Authority = "https://integrator-1262812.okta.com/oauth2/default";
-        
-        // The audience should match what's configured in Okta
-        options.Audience = "api://default"; // This is typically the default for Okta
+        options.Audience = "api://default";
         
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -51,7 +85,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = "role"
         };
         
-        options.RequireHttpsMetadata = true; // Okta uses HTTPS
+        options.RequireHttpsMetadata = true;
         
         // Add logging for debugging
         options.Events = new JwtBearerEvents
@@ -59,13 +93,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError("JWT Authentication failed: {Error}", context.Exception?.Message);
+                logger.LogError("Okta JWT Authentication failed: {Error}", context.Exception?.Message);
                 return Task.CompletedTask;
             },
             OnTokenValidated = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("JWT Token validated successfully");
+                logger.LogInformation("Okta JWT Token validated successfully");
                 
                 // Log all claims to understand what's in the token
                 if (context.Principal != null)
@@ -94,6 +128,78 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 {
                     logger.LogWarning("No Bearer token found in Authorization header");
                 }
+                return Task.CompletedTask;
+            }
+        };
+    })
+    .AddJwtBearer("Microsoft", options =>
+    {
+        // Microsoft ID tokens from the UI
+        options.Authority = "https://login.microsoftonline.com/ccff906d-efd7-4161-ae3a-72a8a92488ef/v2.0";
+        options.Audience = "a4173a31-0e26-467a-abfe-0a564fdba2f3"; // Microsoft Client ID from the token
+        
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
+        
+        options.RequireHttpsMetadata = true;
+        
+        // Add logging for debugging
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError("Microsoft JWT Authentication failed: {Error}", context.Exception?.Message);
+                
+                // Let's see what token we're actually getting
+                string authorization = context.Request.Headers["Authorization"];
+                if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var token = authorization.Substring("Bearer ".Length).Trim();
+                    try
+                    {
+                        var handler = new JwtSecurityTokenHandler();
+                        var jsonToken = handler.ReadJwtToken(token);
+                        logger.LogError("Token Details - Issuer: {Issuer}, Audience: {Audience}, Subject: {Subject}",
+                            jsonToken.Issuer, 
+                            string.Join(", ", jsonToken.Audiences), 
+                            jsonToken.Subject);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError("Could not read token: {Error}", ex.Message);
+                    }
+                }
+                
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("Microsoft JWT Token validated successfully");
+                
+                // Log all claims to understand what's in the token
+                if (context.Principal != null)
+                {
+                    foreach (var claim in context.Principal.Claims)
+                    {
+                        logger.LogInformation("Microsoft Claim: {Type} = {Value}", claim.Type, claim.Value);
+                    }
+                    
+                    // Check for external ID claims
+                    var uid = context.Principal.FindFirst("uid")?.Value;
+                    var sub = context.Principal.FindFirst("sub")?.Value;
+                    var oid = context.Principal.FindFirst("oid")?.Value;
+                    logger.LogInformation("External IDs - uid: {Uid}, sub: {Sub}, oid: {Oid}", uid, sub, oid);
+                }
+                
                 return Task.CompletedTask;
             }
         };
@@ -151,7 +257,11 @@ builder.Services
     .AddFiltering()
     .AddSorting()
     .AddAuthorization()
-    .AddErrorFilter<SecurityAuditDashboard.Api.GraphQL.GraphQLErrorFilter>();
+    .AddErrorFilter<SecurityAuditDashboard.Api.GraphQL.GraphQLErrorFilter>()
+    .ModifyRequestOptions(opt => 
+    {
+        opt.IncludeExceptionDetails = builder.Environment.IsDevelopment();
+    });
 
 var app = builder.Build();
 

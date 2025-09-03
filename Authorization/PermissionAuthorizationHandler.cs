@@ -21,7 +21,9 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         // Look for external ID first (most reliable)
         var externalId = context.User.FindFirst("uid")?.Value  // Okta uses 'uid'
                         ?? context.User.FindFirst("sub")?.Value  // Standard OIDC uses 'sub'
-                        ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value; // Some providers use this
+                        ?? context.User.FindFirst("oid")?.Value  // Microsoft short form (if mapped)
+                        ?? context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value  // Microsoft full schema
+                        ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value; // Falls back to nameidentifier
 
         if (string.IsNullOrEmpty(externalId))
         {
