@@ -134,9 +134,10 @@ builder.Services.AddAuthentication(options =>
     })
     .AddJwtBearer("Microsoft", options =>
     {
-        // Microsoft ID tokens from the UI
-        options.Authority = "https://login.microsoftonline.com/ccff906d-efd7-4161-ae3a-72a8a92488ef/v2.0";
-        options.Audience = "a4173a31-0e26-467a-abfe-0a564fdba2f3"; // Microsoft Client ID from the token
+        // Microsoft access tokens for our API
+        // Use v1.0 authority since access tokens use v1.0 issuer format
+        options.Authority = "https://sts.windows.net/ccff906d-efd7-4161-ae3a-72a8a92488ef/";
+        options.Audience = "api://a4173a31-0e26-467a-abfe-0a564fdba2f3"; // Access token audience with api:// prefix
         
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -183,14 +184,20 @@ builder.Services.AddAuthentication(options =>
             OnTokenValidated = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("Microsoft JWT Token validated successfully");
+                
+                // Check the audience to see if it's an access token or ID token
+                var audience = context.Principal?.FindFirst("aud")?.Value ?? "unknown";
+                var tokenType = audience.StartsWith("api://") ? "Access Token" : "ID Token";
+                
+                logger.LogInformation("Microsoft JWT validated - Type: {TokenType}, Audience: {Audience}", 
+                    tokenType, audience);
                 
                 // Log all claims to understand what's in the token
                 if (context.Principal != null)
                 {
                     foreach (var claim in context.Principal.Claims)
                     {
-                        logger.LogInformation("Microsoft Claim: {Type} = {Value}", claim.Type, claim.Value);
+                        logger.LogDebug("Microsoft Claim: {Type} = {Value}", claim.Type, claim.Value);
                     }
                     
                     // Check for external ID claims
