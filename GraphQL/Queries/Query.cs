@@ -91,6 +91,26 @@ public class Query
     {
         return await roleRepository.GetAllAsync();
     }
+
+    /// <summary>
+    /// Get current user's own information (requires only authentication, no special permissions)
+    /// </summary>
+    [Authorize]
+    public async Task<User?> GetCurrentUser(
+        ClaimsPrincipal claimsPrincipal,
+        [Service] IUserRepository userRepository)
+    {
+        // Get current user's email from JWT claims
+        var userEmail = claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value;
+        if (string.IsNullOrEmpty(userEmail))
+        {
+            return null;
+        }
+
+        // Find user by email (any authenticated user can get their own info)
+        var users = await userRepository.GetAllWithRolesAsync();
+        return users.FirstOrDefault(u => u.Email.Equals(userEmail, StringComparison.OrdinalIgnoreCase));
+    }
 }
 
 /// <summary>
